@@ -85,10 +85,40 @@ class AI(BaseAI):
         return -1
         # <<-- /Creer-Merge: Move -->>
 
+    def check_fire(self, start, goal) -> bool:
+        # start, goal = self.game.players[1 - is_first].wizard.tile, self.game.players[is_first].wizard.tile
+        if ((start.x == goal.x and abs(start.y - goal.y) == 1) or
+            (start.y == goal.y and abs(start.x - goal.x) == 1)):
+            self.player.wizard.cast("Fire Slash", goal)
+            return True
+        if ((start.x == goal.x and abs(start.y - goal.y) == 2) or
+            (start.y == goal.y and abs(start.x - goal.x) == 2)):
+            midX = (start.x + goal.x) // 2
+            midY = (start.y + goal.y) // 2
+            mid = self.game.get_tile_at(midX, midY)
+            # untested…
+            if mid.type == "floor" and (mid.object == None or mid.object.type != "Stone"):
+              self.player.wizard.cast("Fire Slash", goal)
+              return True
+        return False
+
     def run_turn(self) -> bool:
         if self.game.current_turn >> 1 == 0:
           self.player.choose_wizard('aggressive')
           return True
+        
+        if abs(goal.x - start.x) == 1 and abs(goal.x - start.x) == 1:
+          
+        print(self.game.players)
+        is_first = int(self.game.players[0].name == "San Yeung Fan Club")
+        start, goal = self.game.players[1 - is_first].wizard.tile, self.game.players[is_first].wizard.tile
+        print(start.x, start.y, goal.x, goal.y)
+        tiles = self.find_path(start, goal)
+        if len(tiles) > 2:
+            self.player.wizard.move(tiles[0])
+        if len(tiles) > 3:
+            self.player.wizard.move(tiles[1])
+        print(tiles)
 
         print("Do nothing")
         return True
@@ -128,13 +158,14 @@ class AI(BaseAI):
                 if neighbor == goal:
                     # Follow the path backward to the start from the goal and
                     # # return it.
-                    path = [goal]
+                    path = []
 
                     # Starting at the tile we are currently at, insert them
                     # retracing our steps till we get to the starting tile
                     while inspect != start:
-                        path.insert(0, inspect)
+                        path.append(inspect)
                         inspect = came_from[inspect.id]
+                    path.reverse()
                     return path
                 # else we did not find the goal, so enqueue this tile's
                 # neighbors to be inspected
@@ -144,7 +175,8 @@ class AI(BaseAI):
                 if ((neighbor) and
                    (neighbor.id not in came_from) and
                    (neighbor.type == 'floor') and
-                   (neighbor.object == None or neighbor.object.form in ("health flask", "aether flask"))):
+                   (neighbor.object == None or neighbor.object.form in ("health flask", "aether flask"))
+                   ):
                     # add it to the tiles to be explored and add where it came
                     # from for path reconstruction.
                     fringe.append(neighbor)
