@@ -1,0 +1,4 @@
+cd Cerveau
+npm start
+cd ../Joueur.py
+./run Magomachy
