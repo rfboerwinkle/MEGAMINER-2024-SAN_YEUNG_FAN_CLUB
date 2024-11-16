@@ -160,7 +160,13 @@ class AI(BaseAI):
       if self.player.wizard.aether <= 3:
         return False
       op_tile = self.player.opponent.wizard.tile
-      if self.player.wizard.check_bressenham(op_tile):
+      path = self.player.wizard.check_bressenham(op_tile)
+      # I'm not sure which direction it is supposed to be, but I figure either
+      # one should work, and I'm kind of working on untested code.
+      if len(path) > 0 and path[-1].x == op_tile.x and path[-1].y == op_tile.y:
+        self.cast("Calming Blast", op_tile)
+        return True
+      if len(path) > 0 and path[0].x == op_tile.x and path[0].y == op_tile.y:
         self.cast("Calming Blast", op_tile)
         return True
       return False
