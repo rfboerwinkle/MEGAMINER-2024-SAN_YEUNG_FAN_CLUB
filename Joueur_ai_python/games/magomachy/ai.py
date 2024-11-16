@@ -102,25 +102,73 @@ class AI(BaseAI):
               return True
         return False
 
+    def can_move_to(self, tile):
+        return (tile.type == 'floor') and (tile.object == None or tile.object.form in ("health flask", "aether flask"))
+
+    def determine_move(self):
+        optionCW1 = self.ring[(self.current_pos + 1) % len(self.ring)]
+        optionCW2 = self.ring[(self.current_pos + 2) % len(self.ring)]
+        optionCCW1 = self.ring[(self.current_pos - 1 + len(self.ring)) % len(self.ring)]
+        optionCCW2 = self.ring[(self.current_pos - 2 + len(self.ring)) % len(self.ring)]
+        tile_cw1 = self.game.get_tile_at(*optionCW1)
+        tile_cw2 = self.game.get_tile_at(*optionCW2)
+        tile_ccw1 = self.game.get_tile_at(*optionCCW1)
+        tile_ccw2 = self.game.get_tile_at(*optionCCW2)
+        opposing_wizard_tile = self.player.opponent.wizard.tile
+
+        can_move_cw = self.can_move_to(tile_cw1) and self.can_move_to(tile_cw2)
+        can_move_ccw = self.can_move_to(tile_ccw1) and self.can_move_to(tile_ccw2)
+
+        movement_left = self.player.wizard.movement_left
+
+
+        if not can_move_cw and not can_move_ccw:
+            return 0
+        
+        if can_move_cw and not can_move_ccw:
+            self.current_dir = 1
+            return movement_left
+        
+        if can_move_ccw and not can_move_cw:
+            self.current_dir = -1
+            return movement_left
+
+        dist_cw = abs(tile_cw2.x - opposing_wizard_tile.x) + abs(tile_cw2.y - opposing_wizard_tile.y)
+        dist_ccw = abs(tile_ccw2.x - opposing_wizard_tile.x) + abs(tile_ccw2.y - opposing_wizard_tile.y)
+
+        if dist_cw > dist_ccw:
+            self.current_dir = 1
+        if dist_ccw > dist_cw:
+            self.current_dir = -1
+
+        return movement_left
+
     def run_turn(self) -> bool:
         if self.game.current_turn >> 1 == 0:
-          self.player.choose_wizard('aggressive')
+          self.player.choose_wizard('sustaining')
+          self.ring = (
+            [(i, 8) for i in range(1,9)] +
+            [(8, i) for i in range(7,0,-1)] +
+            [(i, 1) for i in range(7,0,-1)] +
+            [(1, i) for i in range(2,8)]
+          )
+          self.current_pos = self.ring.index((8,1) if self.game.current_turn & 1 else (1,8))
+          self.current_dir = 1
           return True
-        
-        if abs(goal.x - start.x) == 1 and abs(goal.x - start.x) == 1:
-          
-        print(self.game.players)
-        is_first = int(self.game.players[0].name == "San Yeung Fan Club")
-        start, goal = self.game.players[1 - is_first].wizard.tile, self.game.players[is_first].wizard.tile
-        print(start.x, start.y, goal.x, goal.y)
-        tiles = self.find_path(start, goal)
-        if len(tiles) > 2:
-            self.player.wizard.move(tiles[0])
-        if len(tiles) > 3:
-            self.player.wizard.move(tiles[1])
-        print(tiles)
 
-        print("Do nothing")
+        move_count = self.determine_move()
+        # Check if can hit and already cast
+        if move_count > 0:
+            self.current_pos = (self.current_pos + self.current_dir) % len(self.ring)
+            target_tile = self.game.get_tile_at(*self.ring[self.current_pos])
+            self.player.wizard.move(target_tile)
+            # Check if can hit and already cast
+        if move_count > 1:
+            self.current_pos = (self.current_pos + self.current_dir) % len(self.ring)
+            target_tile = self.game.get_tile_at(*self.ring[self.current_pos])
+            self.player.wizard.move(target_tile)
+            # Check if can hit and already cast
+        
         return True
 
     def find_path(self, start: 'games.magomachy.tile.Tile', goal: 'games.magomachy.tile.Tile') -> List['games.magomachy.tile.Tile']:
