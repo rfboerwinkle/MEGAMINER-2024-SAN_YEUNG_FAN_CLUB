@@ -85,22 +85,33 @@ class AI(BaseAI):
         return -1
         # <<-- /Creer-Merge: Move -->>
 
-    def check_fire(self, start, goal) -> bool:
-        # start, goal = self.game.players[1 - is_first].wizard.tile, self.game.players[is_first].wizard.tile
-        if ((start.x == goal.x and abs(start.y - goal.y) == 1) or
-            (start.y == goal.y and abs(start.x - goal.x) == 1)):
-            self.player.wizard.cast("Fire Slash", goal)
-            return True
-        if ((start.x == goal.x and abs(start.y - goal.y) == 2) or
-            (start.y == goal.y and abs(start.x - goal.x) == 2)):
-            midX = (start.x + goal.x) // 2
-            midY = (start.y + goal.y) // 2
-            mid = self.game.get_tile_at(midX, midY)
-            # untested…
-            if mid.type == "floor" and (mid.object == None or mid.object.type != "Stone"):
-              self.player.wizard.cast("Fire Slash", goal)
-              return True
-        return False
+    # CREDIT: https://github.com/encukou/bresenham
+    def bres(x0, y0, x1, y1):
+        """Yield integer coordinates on the line from (x0, y0) to (x1, y1).
+
+        Input coordinates should be integers.
+
+        The result will contain both the start and the end point.
+        """
+        dx = x1 - x0
+        dy = y1 - y0
+        xsign = 1 if dx > 0 else -1
+        ysign = 1 if dy > 0 else -1
+        dx = abs(dx)
+        dy = abs(dy)
+        if dx > dy:
+            xx, xy, yx, yy = xsign, 0, 0, ysign
+        else:
+            dx, dy = dy, dx
+            xx, xy, yx, yy = 0, ysign, xsign, 0
+        D = 2*dy - dx
+        y = 0
+        for x in range(dx + 1):
+            yield x0 + x*xx + y*yx, y0 + x*xy + y*yy
+            if D >= 0:
+                y += 1
+                D -= 2*dx
+            D += 2*dy
 
     def can_move_to(self, tile):
         return (tile.type == 'floor') and (tile.object == None or tile.object.form in ("health flask", "aether flask"))
@@ -143,6 +154,17 @@ class AI(BaseAI):
 
         return movement_left
 
+    def check_and_cast(self) -> bool:
+      if not self.player.wizard.has_cast:
+        return False
+      if self.player.wizard.aether <= 3:
+        return False
+      op_tile = self.player.opponent.wizard.tile
+      if self.player.wizard.check_bressenham(op_tile):
+        self.cast("Calming Blast", op_tile)
+        return True
+      return False
+
     def run_turn(self) -> bool:
         if self.game.current_turn >> 1 == 0:
           self.player.choose_wizard('sustaining')
@@ -157,17 +179,17 @@ class AI(BaseAI):
           return True
 
         move_count = self.determine_move()
-        # Check if can hit and already cast
+        check_and_cast()
         if move_count > 0:
             self.current_pos = (self.current_pos + self.current_dir) % len(self.ring)
             target_tile = self.game.get_tile_at(*self.ring[self.current_pos])
             self.player.wizard.move(target_tile)
-            # Check if can hit and already cast
+            check_and_cast()
         if move_count > 1:
             self.current_pos = (self.current_pos + self.current_dir) % len(self.ring)
             target_tile = self.game.get_tile_at(*self.ring[self.current_pos])
             self.player.wizard.move(target_tile)
-            # Check if can hit and already cast
+            check_and_cast()
         
         return True
 
