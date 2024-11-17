@@ -119,9 +119,6 @@ class AI(BaseAI):
         return (tile.type == 'floor') and (tile.object == None or tile.object.form in ("health flask", "aether flask"))
 
     def can_proj_through(self, tile):
-        print(tile.object)
-        if tile.object != None:
-            print(tile.object.form)
         return (tile.type != 'wall' and (tile.object == None or tile.object.form == "stone"))
 
     def determine_move(self):
@@ -171,15 +168,11 @@ class AI(BaseAI):
       # Doesn't work?
       # path = self.player.wizard.check_bressenham(op_tile)
       path = self.bres(pl_tile.x, pl_tile.y, op_tile.x, op_tile.y)
-      print(path)
       can_reach = True
       for p in path:
-        print(p)
         if not self.can_proj_through(self.game.get_tile_at(*p)):
             can_reach = False
             break
-      
-      print(can_reach)
 
       if can_reach:
         self.player.wizard.cast("Calming Blast", op_tile)
@@ -196,34 +189,53 @@ class AI(BaseAI):
           self.current_pos = self.ring.index((8,1) if self.game.current_turn & 1 else (1,8))
           self.current_dir = 1
           return True
-
-        move_count = self.determine_move()
-        self.check_and_cast()
-        if move_count > 0:
-            self.current_pos = (self.current_pos + self.current_dir) % len(self.ring)
-            target_tile = self.game.get_tile_at(*self.ring[self.current_pos])
-            self.player.wizard.move(target_tile)
-            self.check_and_cast()
-        if move_count > 1:
-            self.current_pos = (self.current_pos + self.current_dir) % len(self.ring)
-            target_tile = self.game.get_tile_at(*self.ring[self.current_pos])
-            self.player.wizard.move(target_tile)
-            self.check_and_cast()
         
+        self.strategist_aggro = self.player.opponent.wizard.specialty == 'strategic'
+
+        if not self.strategist_aggro:
+            move_count = self.determine_move()
+            self.check_and_cast()
+            if move_count > 0:
+                self.current_pos = (self.current_pos + self.current_dir) % len(self.ring)
+                target_tile = self.game.get_tile_at(*self.ring[self.current_pos])
+                self.player.wizard.move(target_tile)
+                self.check_and_cast()
+            if move_count > 1:
+                self.current_pos = (self.current_pos + self.current_dir) % len(self.ring)
+                target_tile = self.game.get_tile_at(*self.ring[self.current_pos])
+                self.player.wizard.move(target_tile)
+                self.check_and_cast()
+        else:
+            path = self.find_safe_path(self.player.wizard.tile)
+            self.check_and_cast()
+            if len(path) > 0:
+              self.player.wizard.move(path[0])
+              self.check_and_cast()
+            if len(path) > 1:
+              self.player.wizard.move(path[1])
+              self.check_and_cast()
+
         return True
 
-    def find_path(self, start: 'games.magomachy.tile.Tile', goal: 'games.magomachy.tile.Tile') -> List['games.magomachy.tile.Tile']:
-        """A very basic path finding algorithm (Breadth First Search) that when given a starting Tile, will return a valid path to the goal Tile.
+    def find_safe_tiles(self):
+        unsafe_tiles = set()
+        for i in range(1, 9):
+            for j in range(1, 9):
+                tile = self.game.get_tile_at(i,j)
+                if tile.object != None and tile.object.form == "charge rune":
+                    for k in range(-3, 4):
+                        for l in range(-3, 4):
+                          unsafe_tiles.add((i+k,j+l))
+        safe_tiles = []
+        for i in range(1, 9):
+            for j in range(1, 9):
+                if (i,j) not in unsafe_tiles:
+                    safe_tiles.append(self.game.get_tile_at(i,j))
+        return safe_tiles
 
-        Args:
-            start (games.magomachy.tile.Tile): The starting Tile to find a path from.
-            goal (games.magomachy.tile.Tile): The goal (destination) Tile to find a path to.
-
-        Returns:
-            list[games.magomachy.tile.Tile]: A list of Tiles representing the path, the the first element being a valid adjacent Tile to the start, and the last element being the goal.
-        """
-
-        if start == goal:
+    def find_safe_path(self, start: 'games.magomachy.tile.Tile'):
+        safe_tiles = self.find_safe_tiles()
+        if start in safe_tiles:
             # no need to make a path to here...
             return []
 
@@ -244,7 +256,7 @@ class AI(BaseAI):
             # cycle through the tile's neighbors.
             for neighbor in inspect.get_neighbors():
                 # if we found the goal, we have the path!
-                if neighbor == goal:
+                if neighbor in safe_tiles:
                     # Follow the path backward to the start from the goal and
                     # # return it.
                     path = []
@@ -264,7 +276,7 @@ class AI(BaseAI):
                 if ((neighbor) and
                    (neighbor.id not in came_from) and
                    (neighbor.type == 'floor') and
-                   (neighbor.object == None or neighbor.object.form in ("health flask", "aether flask"))
+                   (neighbor.object == None or neighbor.object.form in ("health flask", "aether flask", "charge rune"))
                    ):
                     # add it to the tiles to be explored and add where it came
                     # from for path reconstruction.
