@@ -86,7 +86,7 @@ class AI(BaseAI):
         # <<-- /Creer-Merge: Move -->>
 
     # CREDIT: https://github.com/encukou/bresenham
-    def bres(x0, y0, x1, y1):
+    def bres(self, x0, y0, x1, y1):
         """Yield integer coordinates on the line from (x0, y0) to (x1, y1).
 
         Input coordinates should be integers.
@@ -99,6 +99,7 @@ class AI(BaseAI):
         ysign = 1 if dy > 0 else -1
         dx = abs(dx)
         dy = abs(dy)
+        l = []
         if dx > dy:
             xx, xy, yx, yy = xsign, 0, 0, ysign
         else:
@@ -107,14 +108,21 @@ class AI(BaseAI):
         D = 2*dy - dx
         y = 0
         for x in range(dx + 1):
-            yield x0 + x*xx + y*yx, y0 + x*xy + y*yy
+            l.append((x0 + x*xx + y*yx, y0 + x*xy + y*yy))
             if D >= 0:
                 y += 1
                 D -= 2*dx
             D += 2*dy
-
+        return l
+    
     def can_move_to(self, tile):
         return (tile.type == 'floor') and (tile.object == None or tile.object.form in ("health flask", "aether flask"))
+
+    def can_proj_through(self, tile):
+        print(tile.object)
+        if tile.object != None:
+            print(tile.object.form)
+        return (tile.type != 'wall' and (tile.object == None or tile.object.form == "stone"))
 
     def determine_move(self):
         optionCW1 = self.ring[(self.current_pos + 1) % len(self.ring)]
@@ -155,21 +163,26 @@ class AI(BaseAI):
         return movement_left
 
     def check_and_cast(self) -> bool:
-      if not self.player.wizard.has_cast:
-        return False
-      if self.player.wizard.aether <= 3:
-        return False
+      if self.player.wizard.has_cast: return
+      if self.player.wizard.aether <= 3: return
+
       op_tile = self.player.opponent.wizard.tile
-      path = self.player.wizard.check_bressenham(op_tile)
-      # I'm not sure which direction it is supposed to be, but I figure either
-      # one should work, and I'm kind of working on untested code.
-      if len(path) > 0 and path[-1].x == op_tile.x and path[-1].y == op_tile.y:
-        self.cast("Calming Blast", op_tile)
-        return True
-      if len(path) > 0 and path[0].x == op_tile.x and path[0].y == op_tile.y:
-        self.cast("Calming Blast", op_tile)
-        return True
-      return False
+      pl_tile = self.player.wizard.tile
+      # Doesn't work?
+      # path = self.player.wizard.check_bressenham(op_tile)
+      path = self.bres(pl_tile.x, pl_tile.y, op_tile.x, op_tile.y)
+      print(path)
+      can_reach = True
+      for p in path:
+        print(p)
+        if not self.can_proj_through(self.game.get_tile_at(*p)):
+            can_reach = False
+            break
+      
+      print(can_reach)
+
+      if can_reach:
+        self.player.wizard.cast("Calming Blast", op_tile)
 
     def run_turn(self) -> bool:
         if self.game.current_turn >> 1 == 0:
@@ -185,17 +198,17 @@ class AI(BaseAI):
           return True
 
         move_count = self.determine_move()
-        check_and_cast()
+        self.check_and_cast()
         if move_count > 0:
             self.current_pos = (self.current_pos + self.current_dir) % len(self.ring)
             target_tile = self.game.get_tile_at(*self.ring[self.current_pos])
             self.player.wizard.move(target_tile)
-            check_and_cast()
+            self.check_and_cast()
         if move_count > 1:
             self.current_pos = (self.current_pos + self.current_dir) % len(self.ring)
             target_tile = self.game.get_tile_at(*self.ring[self.current_pos])
             self.player.wizard.move(target_tile)
-            check_and_cast()
+            self.check_and_cast()
         
         return True
 
