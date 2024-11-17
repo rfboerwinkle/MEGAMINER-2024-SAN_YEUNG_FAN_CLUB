@@ -85,6 +85,54 @@ class AI(BaseAI):
         return -1
         # <<-- /Creer-Merge: Move -->>
 
+#     def bressenham(self, x0, y0, x1, y1, current):
+#         dx = x1 - x0
+#         sx = 1 if x0 < x1 else -1
+# 
+#         dy = y1 - y0
+#         sy = 1 if y0 < y1 else -1
+# 
+#         cx = 1 if dx > dy else 0.5
+#         cy = 0.5 if dx > dy else 1
+# 
+#         isDiag = abs(dx) == abs(dy)
+# 
+#         b = y0 - dy / dx * x0
+# 
+#         # If a point (x,y) is on the line, then dy*x - dx*y + dx*b = 0.
+#         # Its parity also tells us how good a nearby tile approximates the line.
+#         f = dy*(current.x + sx*cx) - dx*(current.y + sy*cy) + dx*b
+# 
+#         # Now we choose the best tile for the line.
+#         # We always update the coordinate that changes quicker.
+#         # If f is positive or the slope is 1, we also update the other coordinate.
+#         # Since this function is being called outside the game class, we can't just tilemap this.
+#         # So we have to go case by case.
+#         vert = "North"
+#         horiz = "West"
+#         if (sy > 0):
+#             vert = "South"
+# 
+#         if (sx > 0):
+#             horiz = "East"
+# 
+#         if (abs(dy) > abs(dx)):
+#             neighbor = current.get_neighbor(vert)
+#             if ((isDiag or f > 0) and dx != 0):
+#                 if neighbor != None:
+#                   return neighbor.get_neighbor(horiz)
+#                 else:
+#                   return None
+#             return neighbor
+#         else:
+#             neighbor = current.get_neighbor(horiz)
+#             if ((isDiag or f > 0) and dy != 0):
+#                 if neighbor != None:
+#                   return neighbor.get_neighbor(horiz)
+#                 else:
+#                   return None
+#             return neighbor
+        
     # CREDIT: https://github.com/encukou/bresenham
     def bres(self, x0, y0, x1, y1):
         """Yield integer coordinates on the line from (x0, y0) to (x1, y1).
@@ -119,7 +167,7 @@ class AI(BaseAI):
         return (tile.type == 'floor') and (tile.object == None or tile.object.form in ("health flask", "aether flask"))
 
     def can_proj_through(self, tile):
-        return (tile.type != 'wall' and (tile.object == None or tile.object.form == "stone"))
+        return (tile.type != 'wall' and (tile.object == None or tile.object.form != "stone"))
 
     def determine_move(self):
         optionCW1 = self.ring[(self.current_pos + 1) % len(self.ring)]
